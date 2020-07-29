@@ -16,11 +16,14 @@ def macro():
 
 
 def autoclick(x, y, freq, button):
-    mouse.position = (x, y)
     global running
     while(running):
         print('click')
-        mouse.position = (x, y)
+        if(x != 0):
+            if(y != 0):
+                mouse.position = (mouse.position[0], y)
+            mouse.position = (x, mouse.position[1])
+
         if(button == 'left'):
             mouse.click(Button.left, 1)
         elif(button == 'right'):
@@ -45,7 +48,7 @@ def start_click(*args):
 
     # if(x == '' and y == '' and freq == '' and button == 'left'):
     click = threading.Thread(target=autoclick, args=(
-        mouse.position[0] if x == '' else int(x), mouse.position[1] if y == '' else int(y), 5 if freq == '' else int(freq), 'left' if button == 'left' else 'right'))
+        0 if x == '' else int(x), 0 if y == '' else int(y), 5 if freq == '' else int(freq), 'left' if button == 'left' else 'right'))
     # else:
     #     print("WHY NOT WORK")
     #     click = threading.Thread(target=autoclick, args=(int(x), int(
@@ -99,13 +102,13 @@ def on_release(key):
 def key_listen():
     global kill_threads
     while not kill_threads:
-        if current_window == desired_window_name:
-            with Listener(
-                on_press=on_press,
-                on_release=on_release
+        # if current_window == desired_window_name:
+        with Listener(
+            on_press=on_press,
+            on_release=on_release
 
-            ) as listener:
-                listener.join()
+        ) as listener:
+            listener.join()
 
 
 def on_exit():
@@ -205,7 +208,7 @@ class gui(tk.Frame):
 if __name__ == "__main__":
     current_window = (GetWindowText(GetForegroundWindow()))
     # Whatever the name of your window should be
-    desired_window_name = "Macro.py - macro - Visual Studio Code"
+    desired_window_name = "Python Macro"
 
     running = False
     kill_threads = False
