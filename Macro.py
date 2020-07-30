@@ -1,10 +1,13 @@
 import tkinter as tk
-import threading
 import sys
+import threading
+import win32
 from time import sleep
-from pynput.mouse import Button, Controller as MouseController
-from pynput.keyboard import Key, Listener, HotKey, Controller as KeyboardController
-from win32gui import GetWindowText, GetForegroundWindow
+from pynput.mouse import Button, Controller as MouseController, Listener as MouseListener
+from pynput.keyboard import Key, Listener as KeyboardListener, HotKey, Controller as KeyboardController
+
+running = False
+kill_threads = False
 
 
 def input_rec():
@@ -15,10 +18,12 @@ def macro():
     return
 
 
-def autoclick(x, y, freq, button):
+def autoclick(x, y, freq, button, num):
     global running
-    while(running):
+    count = 0
+    while(running and count < num):
         print('click')
+        print(mouse.position)
         if(x != 0):
             if(y != 0):
                 mouse.position = (mouse.position[0], y)
@@ -29,6 +34,9 @@ def autoclick(x, y, freq, button):
         elif(button == 'right'):
             mouse.click(Button.right, 1)
         sleep(0.001*freq)
+        count += 1
+    else:
+        running = False
 
 
 def start_click(*args):
@@ -39,7 +47,8 @@ def start_click(*args):
                         != '') else mouse.position[1]
         freq = args[2] if (args[2].isnumeric() and args[2] != '') else 5
         button = args[3]
-        print(x, y, freq, button)
+        num = int(args[4]) if (args[4].isnumeric()) else float('inf')
+        print(x, y, freq, button, num)
     else:
         x = ''
         y = ''
@@ -48,7 +57,7 @@ def start_click(*args):
 
     # if(x == '' and y == '' and freq == '' and button == 'left'):
     click = threading.Thread(target=autoclick, args=(
-        0 if x == '' else int(x), 0 if y == '' else int(y), 5 if freq == '' else int(freq), 'left' if button == 'left' else 'right'))
+        0 if x == '' else int(x), 0 if y == '' else int(y), 5 if freq == '' else int(freq), 'left' if button == 'left' else 'right', num))
     # else:
     #     print("WHY NOT WORK")
     #     click = threading.Thread(target=autoclick, args=(int(x), int(
@@ -61,7 +70,7 @@ def input_macro():
     return
 
 
-def macro_loop():
+def macro_start():
     return
 
 
@@ -72,6 +81,10 @@ def on_press(key):
     print(current)
     global kill_threads
     print('kill', kill_threads)
+
+    # insert listbox
+    app.lb_recmac.insert('end', key)
+
     if key in COMB_AUTO:
         current.add(key)
 
@@ -82,12 +95,36 @@ def on_press(key):
             else:
                 running = True
             print('All modifiers active!')
-            start_click()
+
+            x = app.t1.get('1.0', 'end').rstrip()
+            y = app.t2.get('1.0', 'end').rstrip()
+            frequency = app.t3.get('1.0', 'end').rstrip()
+            click_but = app.button_select.rstrip()
+            num = app.t4.get('1.0', 'end').rstrip()
+
+            start_click(x, y, frequency, click_but, num)
 
     if key in COMB_MAC:
         current.add(key)
         if all(k in current for k in COMB_MAC):
             print('All modifiers active! MAC')
+    if kill_threads:
+        return False
+
+
+def on_move(x, y):
+    # print('Pointer moved to {0}'.format(
+    #     (x, y)))
+    if kill_threads:
+        return False
+
+
+def on_click(x, y, button, pressed):
+    print('{0} at {1}'.format(
+        'Pressed' if pressed else 'Released',
+        (x, y)))
+    if(pressed):
+        app.lb_recmac.insert('end', button)
     if kill_threads:
         return False
 
@@ -103,12 +140,17 @@ def key_listen():
     global kill_threads
     while not kill_threads:
         # if current_window == desired_window_name:
-        with Listener(
-            on_press=on_press,
-            on_release=on_release
-
+        print('test')
+        with MouseListener(
+            on_move=on_move,
+            on_click=on_click
         ) as listener:
-            listener.join()
+            with KeyboardListener(
+
+                on_press=on_press,
+                on_release=on_release
+            ) as listener:
+                listener.join()
 
 
 def on_exit():
@@ -141,6 +183,9 @@ class gui(tk.Frame):
         l4 = tk.Label(self.parent, text="Freq (ms)")
         l4.grid(
             row=1, column=4, sticky='nesw', padx=30)
+        l5 = tk.Label(self.parent, text="times")
+        l5.grid(
+            row=1, column=6, sticky='nesw', padx=30)
         self.t1 = tk.Text(self.parent, height=1, width=9)
         self.t1.grid(
             row=1, column=1, sticky='nesw')
@@ -150,6 +195,9 @@ class gui(tk.Frame):
         self.t3 = tk.Text(self.parent, height=1, width=9)
         self.t3.grid(
             row=1, column=5, sticky='nesw')
+        self.t4 = tk.Text(self.parent, height=1, width=9)
+        self.t4.grid(
+            row=1, column=7, sticky='nesw')
 
         self.button_select = 'left'
 
@@ -158,14 +206,21 @@ class gui(tk.Frame):
         self.b2 = tk.Button(self.parent, text="right", padx=30,
                             command=lambda: self.setmb('right'), state='normal')
 
-        self.b1.grid(row=1, column=6, sticky="nesw")
-        self.b2.grid(row=1, column=7, sticky="nesw")
+        self.b1.grid(row=1, column=8, sticky="nesw")
+        self.b2.grid(row=1, column=9, sticky="nesw")
 
         self.b3_submit = tk.Button(self.parent, text="Start (ctrl+f1)", padx=30, command=lambda: self.clicker_submit(),
                                    state='normal', bg="peach puff")
-        self.b3_submit.grid(row=1, column=8, sticky="nesw")
+        self.b3_submit.grid(row=1, column=10, sticky="nesw")
 
-        # canvas = tk.Canvas(window, width=600, height=400)
+        # Macro record
+
+        self.l_mac = tk.Label(self.parent, text="Macro Record", pady=10)
+        self.l_mac.grid(row=2, column=0, sticky="nesw")
+
+        self.lb_recmac = tk.Listbox(self.parent, relief='sunken', border=2)
+        self.lb_recmac.grid(row=3, column=0, sticky="nesw",
+                            columnspan=6, padx=(10, 0), pady=(0, 10))
 
         self.parent.protocol('WM_DELETE_WINDOW', on_exit)
 
@@ -195,23 +250,21 @@ class gui(tk.Frame):
         y = self.t2.get('1.0', 'end').rstrip()
         frequency = self.t3.get('1.0', 'end').rstrip()
         click_but = self.button_select.rstrip()
+        num = self.t4.get('1.0', 'end').rstrip()
 
-        print(x, y, frequency, click_but)
+        print(x, y, frequency, click_but, num)
         global running
         if(running):
             running = False
         else:
             running = True
-            start_click(x, y, frequency, click_but)
+            start_click(x, y, frequency, click_but, num)
 
 
 if __name__ == "__main__":
-    current_window = (GetWindowText(GetForegroundWindow()))
+    # current_window = (GetWindowText(GetForegroundWindow()))
     # Whatever the name of your window should be
-    desired_window_name = "Python Macro"
-
-    running = False
-    kill_threads = False
+    # desired_window_name = "Python Macro"
     # tkinter gui setup
     window = tk.Tk()
 
