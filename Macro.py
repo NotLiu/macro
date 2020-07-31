@@ -10,8 +10,32 @@ running = False
 kill_threads = False
 
 
-def input_rec():
-    return
+def input_rec_toggle():
+    global input_rec
+    if input_rec == False:
+        input_rec = True
+    else:
+        input_rec = False
+
+
+def input_mouse_move_toggle():
+    global record_move
+    if record_move == False:
+        record_move = True
+        app.b_move_mac.config(relief='sunken')
+    else:
+        record_move = False
+        app.b_move_mac.config(relief='raised')
+
+
+def jiggle_toggle():
+    global mouse_jiggle
+    if mouse_jiggle == False:
+        mouse_jiggle = True
+        app.b_mouse_jiggle.config(relief='sunken')
+    else:
+        mouse_jiggle = False
+        app.b_mouse_jiggle.config(relief='raised')
 
 
 def macro():
@@ -66,10 +90,6 @@ def start_click(*args):
     click.start()
 
 
-def input_macro():
-    return
-
-
 def macro_start():
     return
 
@@ -81,9 +101,9 @@ def on_press(key):
     print(current)
     global kill_threads
     print('kill', kill_threads)
-
     # insert listbox
-    app.lb_recmac.insert('end', key)
+    if input_rec == True and key != Key.f4:
+        app.lb_recmac.insert('end', key)
 
     if key in COMB_AUTO:
         current.add(key)
@@ -107,7 +127,15 @@ def on_press(key):
     if key in COMB_MAC:
         current.add(key)
         if all(k in current for k in COMB_MAC):
-            print('All modifiers active! MAC')
+            print("MACRO FIRE")
+
+    if key in REC_MAC:
+        current.add(key)
+        if all(k in current for k in REC_MAC):
+            input_rec_toggle()
+    if key == Key.f4 and record_move and input_rec:
+        app.lb_recmac.insert('end', (mouse.position))
+
     if kill_threads:
         return False
 
@@ -123,7 +151,7 @@ def on_click(x, y, button, pressed):
     print('{0} at {1}'.format(
         'Pressed' if pressed else 'Released',
         (x, y)))
-    if(pressed):
+    if(pressed and input_rec == True):
         app.lb_recmac.insert('end', button)
     if kill_threads:
         return False
@@ -183,7 +211,7 @@ class gui(tk.Frame):
         l4 = tk.Label(self.parent, text="Freq (ms)")
         l4.grid(
             row=1, column=4, sticky='nesw', padx=30)
-        l5 = tk.Label(self.parent, text="times")
+        l5 = tk.Label(self.parent, text="Times")
         l5.grid(
             row=1, column=6, sticky='nesw', padx=30)
         self.t1 = tk.Text(self.parent, height=1, width=9)
@@ -220,8 +248,47 @@ class gui(tk.Frame):
 
         self.lb_recmac = tk.Listbox(self.parent, relief='sunken', border=2)
         self.lb_recmac.grid(row=3, column=0, sticky="nesw",
-                            columnspan=6, padx=(10, 0), pady=(0, 10))
+                            columnspan=6, rowspan=3, padx=(10, 0))
 
+        self.b_mac = tk.Button(self.parent, text="Record Macro (ctrl + f3)",
+                               padx=30, command=lambda: input_rec_toggle())
+        self.b_mac.grid(row=3, column=6, sticky="nesw", columnspan=2)
+
+        self.b_move_mac = tk.Button(self.parent, text="Record Mouse Move (ctrl + f4)",
+                                    padx=30, command=lambda: input_mouse_move_toggle())
+
+        self.b_move_mac.grid(row=4, column=6, sticky="nesw", columnspan=2)
+        self.b_mouse_jiggle = tk.Button(self.parent, text="Mouse Jiggle Toggle",
+                                        padx=30, command=lambda: jiggle_toggle())
+
+        self.b_mouse_jiggle.grid(row=5, column=6, sticky="nesw", columnspan=2)
+
+        # macro options
+        self.l_mac_time = tk.Label(self.parent, text="Times")
+        self.l_mac_time.grid(row=3, column=8, sticky="nesw")
+
+        self.l_mac_freq = tk.Label(self.parent, text="Freq (ms)")
+        self.l_mac_freq.grid(row=4, column=8, sticky="nesw")
+
+        self.e_mac_time = tk.Entry(self.parent, width=9)
+        self.e_mac_time.grid(row=3, column=9, sticky="nesw")
+
+        self.e_mac_freq = tk.Entry(self.parent, width=9)
+        self.e_mac_freq.grid(row=4, column=9, sticky="nesw")
+        # open macro files
+        self.b_open_mac = tk.Button(self.parent, text="Import Macro")
+        self.b_open_mac.grid(row=5, column=8, sticky="nesw")
+
+        self.b_save_mac = tk.Button(self.parent, text="Save Macro")
+        self.b_save_mac.grid(row=5, column=9, sticky="nesw")
+
+        # macro start
+        self.b_mac_start = tk.Button(
+            self.parent, text='Start Macro (ctrl+f2)', bg="peach puff")
+        self.b_mac_start.grid(row=3, column=10, rowspan=3,
+                              sticky="nesw")
+
+        # EXIT
         self.parent.protocol('WM_DELETE_WINDOW', on_exit)
 
     def setmb(self, mouse_but):
@@ -271,8 +338,12 @@ if __name__ == "__main__":
     app = gui(window)
 
     # keyinputs
+    input_rec = False
+    record_move = False
+    mouse_jiggle = False
     COMB_AUTO = {Key.f1, Key.ctrl_l}
     COMB_MAC = {Key.f2, Key.ctrl_l}
+    REC_MAC = {Key.f3, Key.ctrl_l}
     current = set()
 
     mouse = MouseController()
@@ -284,8 +355,9 @@ if __name__ == "__main__":
     # loops
     loop = threading.Thread(target=key_listen, args=())
     loop.start()
-    gui_loop = threading.Thread(target=app.mainloop(), args=())
-    gui_loop.start()
+    # gui_loop = threading.Thread(target=app.mainloop(), args=())
+    # gui_loop
+    app.mainloop().start()
 
     loop.join()
     gui_loop.join()
