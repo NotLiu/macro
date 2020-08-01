@@ -2,11 +2,13 @@ import tkinter as tk
 import sys
 import threading
 import win32
+import random
 from time import sleep
 from pynput.mouse import Button, Controller as MouseController, Listener as MouseListener
 from pynput.keyboard import Key, Listener as KeyboardListener, HotKey, Controller as KeyboardController
 
 running = False
+mac_running = False
 kill_threads = False
 
 
@@ -14,8 +16,13 @@ def input_rec_toggle():
     global input_rec
     if input_rec == False:
         input_rec = True
+        app.lb_recmac.delete(0, 'end')
+        app.b_mac.config(relief='sunken')
     else:
         input_rec = False
+        app.lb_recmac.delete('end', 'end')
+        app.lb_recmac.delete('end', 'end')
+        app.b_mac.config(relief='raised')
 
 
 def input_mouse_move_toggle():
@@ -38,20 +45,95 @@ def jiggle_toggle():
         app.b_mouse_jiggle.config(relief='raised')
 
 
-def macro():
-    return
+def macro(freq, num):
+    print(freq, num)
+    global mac_running
+    macro_commands = app.lb_recmac.get(0, 'end')
+    print('ZZZZZZZz', macro_commands)
+    print(num)
+    count = 0
+    first_pos = True
+    while mac_running and count < num:
+        mb_left = False
+        mb_right = False
+        for i in macro_commands:
+            if(mb_left == False and i == 'Button.left'):
+                mb_left = True
+                mouse.press(Button.left)
+                pass
+            elif i == "Button.left":
+                mb_left = False
+                mouse.release(Button.right)
+                pass
+
+            if(mb_right == False and i == 'Button.right'):
+                mb_right = True
+                mouse.press(Button.right)
+                pass
+            elif i == 'Button.right':
+                mb_right = False
+                mouse.release(Button.right)
+                pass
+
+            if(not 'Button' in i and type(i) != tuple):
+                keyboard.press(i[1])
+                keyboard.release(i[1])
+            elif(type(i) == tuple):
+                if first_pos:
+                    mouse.position = i
+                else:
+                    x_diff = mouse.position[0] - i[0]
+                    y_diff = mouse.position[1] - i[1]
+                    print("DEFEF")
+                    print(x_diff, y_diff)
+                    print(mouse.position)
+
+                    mouse.move(x_diff, y_diff)
+
+        count += 1
+    else:
+        mac_running = False
+
+
+def macro_start(freq, num):
+    macro_thread = threading.Thread(target=macro, args=(freq, num))
+    macro_thread.start()
 
 
 def autoclick(x, y, freq, button, num):
     global running
     count = 0
+    orig_pos = 0
+    x_jiggle = 0
+    y_jiggle = 0
+    if(x != 0):
+        if(y != 0):
+            orig_pos = mouse.position
+        else:
+            orig_pos = (mouse.position[0], y)
+    else:
+        orig_pos = (x, mouse.position[1])
+
     while(running and count < num):
         print('click')
         print(mouse.position)
+        print(x, y)
+        if mouse_jiggle:
+            x_jiggle = random.randint(-1, 1)
+            y_jiggle = random.randint(-1, 1)
+            mouse.move(x_jiggle, y_jiggle)
+
+        # if abs(mouse.position[0]-orig_pos[0]) > 40 and mouse_jiggle:
+        #     mouse.position = (orig_pos[0], mouse.position[1])
+        # elif abs(mouse.position[1]-orig_pos[1]) > 40 and mouse_jiggle:
+        #     mouse.position = (mouse.position[0], orig_pos[1])
+        if(y != 0):
+            mouse.position = (mouse.position[0], y)
         if(x != 0):
-            if(y != 0):
-                mouse.position = (mouse.position[0], y)
             mouse.position = (x, mouse.position[1])
+
+        if(x == 0 and y == 0):
+            orig_pos = mouse.position
 
         if(button == 'left'):
             mouse.click(Button.left, 1)
@@ -90,20 +172,16 @@ def start_click(*args):
     click.start()
 
 
-def macro_start():
-    return
-
-
 # hotkeys
 def on_press(key):
     print('{0} pressed'.format(
         key))
-    print(current)
     global kill_threads
-    print('kill', kill_threads)
     # insert listbox
-    if input_rec == True and key != Key.f4:
+    if input_rec == True and not 'Key' in str(key):
         app.lb_recmac.insert('end', key)
+    elif input_rec == True and 'space' in str(key):
+        app.lb_recmac.insert('end', "' '")
 
     if key in COMB_AUTO:
         current.add(key)
@@ -127,7 +205,17 @@ def on_press(key):
     if key in COMB_MAC:
         current.add(key)
         if all(k in current for k in COMB_MAC):
+            global mac_running
             print("MACRO FIRE")
+            num = app.e_mac_time.get().rstrip()
+            frequency = app.e_mac_freq.get().rstrip()
+
+            if(not mac_running):
+                mac_running = True
+                macro_start(frequency if frequency.isnumeric() else 100,
+                            int(num) if num.isnumeric() else float('inf'))
+            else:
+                mac_running = False
 
     if key in REC_MAC:
         current.add(key)
@@ -151,7 +239,7 @@ def on_click(x, y, button, pressed):
     print('{0} at {1}'.format(
         'Pressed' if pressed else 'Released',
         (x, y)))
-    if(pressed and input_rec == True):
+    if(input_rec == True):
         app.lb_recmac.insert('end', button)
     if kill_threads:
         return False
@@ -174,7 +262,6 @@ def key_listen():
             on_click=on_click
         ) as listener:
             with KeyboardListener(
-
                 on_press=on_press,
                 on_release=on_release
             ) as listener:
@@ -254,7 +341,7 @@ class gui(tk.Frame):
                                padx=30, command=lambda: input_rec_toggle())
         self.b_mac.grid(row=3, column=6, sticky="nesw", columnspan=2)
 
-        self.b_move_mac = tk.Button(self.parent, text="Record Mouse Move (ctrl + f4)",
+        self.b_move_mac = tk.Button(self.parent, text="Record Mouse Move (ctrl + f4) *",
                                     padx=30, command=lambda: input_mouse_move_toggle())
 
         self.b_move_mac.grid(row=4, column=6, sticky="nesw", columnspan=2)
@@ -284,7 +371,7 @@ class gui(tk.Frame):
 
         # macro start
         self.b_mac_start = tk.Button(
-            self.parent, text='Start Macro (ctrl+f2)', bg="peach puff")
+            self.parent, text='Start Macro (ctrl+f2)', bg="peach puff", command=lambda: self.macro_submit())
         self.b_mac_start.grid(row=3, column=10, rowspan=3,
                               sticky="nesw")
 
@@ -326,6 +413,17 @@ class gui(tk.Frame):
         else:
             running = True
             start_click(x, y, frequency, click_but, num)
+
+    def macro_submit(self):
+        num = self.e_mac_time.get().rstrip()
+        frequency = self.e_mac_freq.get().rstrip()
+        global mac_running
+        if mac_running:
+            mac_running = False
+        else:
+            mac_running = True
+            macro_start(frequency if frequency.isnumeric() else 100,
+                        int(num) if num.isnumeric() else float('inf'))
 
 
 if __name__ == "__main__":
