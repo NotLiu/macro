@@ -1,3 +1,4 @@
+import tkinter.filedialog
 import tkinter as tk
 import sys
 import threading
@@ -17,11 +18,12 @@ def input_rec_toggle():
     if input_rec == False:
         input_rec = True
         app.lb_recmac.delete(0, 'end')
+
         app.b_mac.config(relief='sunken')
     else:
         input_rec = False
-        app.lb_recmac.delete('end', 'end')
-        app.lb_recmac.delete('end', 'end')
+        # app.lb_recmac.delete('end', 'end')
+        # app.lb_recmac.delete('end', 'end')
         app.b_mac.config(relief='raised')
 
 
@@ -63,7 +65,7 @@ def macro(freq, num):
                 pass
             elif i == "Button.left":
                 mb_left = False
-                mouse.release(Button.right)
+                mouse.release(Button.left)
                 pass
 
             if(mb_right == False and i == 'Button.right'):
@@ -81,15 +83,19 @@ def macro(freq, num):
             elif(type(i) == tuple):
                 if first_pos:
                     mouse.position = i
+                    first_pos = False
                 else:
-                    x_diff = mouse.position[0] - i[0]
-                    y_diff = mouse.position[1] - i[1]
+                    x_diff = i[0] - mouse.position[0]
+                    y_diff = i[1] - mouse.position[1]
                     print("DEFEF")
                     print(x_diff, y_diff)
                     print(mouse.position)
 
                     mouse.move(x_diff, y_diff)
+            sleep(0.001*int(freq))
 
+            if(mac_running == False):
+                break
         count += 1
     else:
         mac_running = False
@@ -209,7 +215,6 @@ def on_press(key):
             print("MACRO FIRE")
             num = app.e_mac_time.get().rstrip()
             frequency = app.e_mac_freq.get().rstrip()
-
             if(not mac_running):
                 mac_running = True
                 macro_start(frequency if frequency.isnumeric() else 100,
@@ -289,10 +294,10 @@ class gui(tk.Frame):
         l1 = tk.Label(self.parent, text="Auto Clicker")
         l1.grid(
             row=0, column=0, sticky='nesw')
-        l2 = tk.Label(self.parent, text="x")
+        l2 = tk.Label(self.parent, text="x*")
         l2.grid(
             row=1, column=0, sticky='nesw')
-        l3 = tk.Label(self.parent, text="y")
+        l3 = tk.Label(self.parent, text="y*")
         l3.grid(
             row=1, column=2, sticky='nesw', padx=30)
         l4 = tk.Label(self.parent, text="Freq (ms)")
@@ -363,10 +368,12 @@ class gui(tk.Frame):
         self.e_mac_freq = tk.Entry(self.parent, width=9)
         self.e_mac_freq.grid(row=4, column=9, sticky="nesw")
         # open macro files
-        self.b_open_mac = tk.Button(self.parent, text="Import Macro")
+        self.b_open_mac = tk.Button(
+            self.parent, text="Import Macro", command=lambda: self.macro_import())
         self.b_open_mac.grid(row=5, column=8, sticky="nesw")
 
-        self.b_save_mac = tk.Button(self.parent, text="Save Macro")
+        self.b_save_mac = tk.Button(
+            self.parent, text="Save Macro", command=lambda: self.macro_export())
         self.b_save_mac.grid(row=5, column=9, sticky="nesw")
 
         # macro start
@@ -374,6 +381,10 @@ class gui(tk.Frame):
             self.parent, text='Start Macro (ctrl+f2)', bg="peach puff", command=lambda: self.macro_submit())
         self.b_mac_start.grid(row=3, column=10, rowspan=3,
                               sticky="nesw")
+
+        # extra info
+        # x and y set to 0 autoclicker to update click at mouse position
+        # mouse position record each time hotkey ctrl+f4 hit
 
         # EXIT
         self.parent.protocol('WM_DELETE_WINDOW', on_exit)
@@ -424,6 +435,18 @@ class gui(tk.Frame):
             mac_running = True
             macro_start(frequency if frequency.isnumeric() else 100,
                         int(num) if num.isnumeric() else float('inf'))
+
+    def macro_import(self):
+        filename = tk.filedialog.askopenfile(
+            initialdir='/', title='Select file', filetypes=(("text files", "*.txt"), ("all files", "*.*")))
+        for i in filename:
+            self.lb_recmac.insert('end', (i.rstrip()))
+
+    def macro_export(self):
+        filename = tk.filedialog.asksaveasfile(mode='w', filetypes=(
+            ("text files", "*.txt"), ("all files", "*.*")), defaultextension=('text files', '*.txt'))
+        for i in self.lb_recmac.get(0, 'end'):
+            filename.write(str(i)+'\n')
 
 
 if __name__ == "__main__":
