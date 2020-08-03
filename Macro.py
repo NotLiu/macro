@@ -384,8 +384,14 @@ class gui(tk.Frame):
 
         # extra info
         # x and y set to 0 autoclicker to update click at mouse position
+        self.l_info1 = tk.Label(
+            self.parent, text="* x and y set to 0 autoclicker to update click at mouse position")
+        self.l_info1.grid(row=6, column=0, sticky="nesw",
+                          columnspan=3, padx=10)
         # mouse position record each time hotkey ctrl+f4 hit
-
+        self.l_info2 = tk.Label(
+            self.parent, text="* mouse position record each time hotkey ctrl+f4 hit")
+        self.l_info2.grid(row=6, column=4, sticky="nesw")
         # EXIT
         self.parent.protocol('WM_DELETE_WINDOW', on_exit)
 
@@ -450,10 +456,6 @@ class gui(tk.Frame):
 
 
 if __name__ == "__main__":
-    # current_window = (GetWindowText(GetForegroundWindow()))
-    # Whatever the name of your window should be
-    # desired_window_name = "Python Macro"
-    # tkinter gui setup
     window = tk.Tk()
 
     app = gui(window)
@@ -476,7 +478,6 @@ if __name__ == "__main__":
     # loops
     loop = threading.Thread(target=key_listen, args=())
     loop.start()
-    # gui_loop = threading.Thread(target=app.mainloop(), args=())
     # gui_loop
     app.mainloop().start()
 
