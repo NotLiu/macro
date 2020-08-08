@@ -58,6 +58,7 @@ def macro(freq, num):
     while mac_running and count < num:
         mb_left = False
         mb_right = False
+        set_key = set()
         for i in macro_commands:
             if(mb_left == False and i == 'Button.left'):
                 mb_left = True
@@ -78,8 +79,12 @@ def macro(freq, num):
                 pass
 
             if(not 'Button' in i and type(i) != tuple):
-                keyboard.press(i[1])
-                keyboard.release(i[1])
+                if(i in set_key):
+                    keyboard.release(i[1])
+                    set_key.remove(i)
+                else:
+                    keyboard.press(i[1])
+                    set_key.add(i)
             elif(type(i) == tuple):
                 if first_pos:
                     mouse.position = i
@@ -252,7 +257,13 @@ def on_click(x, y, button, pressed):
 
 def on_release(key):
     try:
+        print(key, 'released')
+        if input_rec == True and not 'Key' in str(key):
+            app.lb_recmac.insert('end', key)
+        elif input_rec == True and 'space' in str(key):
+            app.lb_recmac.insert('end', "' '")
         current.remove(key)
+
     except KeyError:
         pass
 
